@@ -32,7 +32,7 @@ router.post('/signup', async function (req, res, next) {
     var users = database.collection('users');
     const existingUser = await users.findOne({username: username})
     if(existingUser){
-      return res.status(400).send("이미 존재하는 사용자입니다.")
+      return res.status(409).send("이미 존재하는 사용자입니다.")
     }
 
     // 비밀번호 암호화
