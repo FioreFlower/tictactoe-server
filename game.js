@@ -1,39 +1,56 @@
 const {v4: uuidv4} = require('uuid');
 
-module.exports = function (server) {
-    const io = require("socket.io")(server);
+module.exports = function(server) {
 
+    const io = require('socket.io')(server, {
+        transports: ['websocket']
+    });
+
+    // 방 정보
     var rooms = [];
+    var socketRooms = new Map();
 
-    io.on("connection", function (socket) {
-        console.log("user connected");
-
-        if(rooms.length > 0){
+    io.on('connection', function(socket) {
+        console.log('Connected: ' + socket.id);
+        if (rooms.length > 0) {
             var roomId = rooms.shift();
-            socket.join(roomId);
-            socket.emit("joinRoom", {roomId});
-            socket.to(roomId).emit('startGame', {userId: socket.id});
+            socket.join(roomId)
+            socket.emit('joinRoom', { roomId: roomId });
+            socket.to(roomId).emit('startGame', { roomId: socket.id });
+            socketRooms.set(socket.id, roomId);
         } else {
             var roomId = uuidv4();
             socket.join(roomId);
-            socket.emit("createRoom", {roomId});
+            socket.emit('createRoom', { room: roomId });
             rooms.push(roomId);
+            socketRooms.set(socket.id, roomId);
         }
 
-        socket.on('leaveRoom', function (){
-            socket.leave(roomId);
-            socket.emit("leaveRoom", {roomId});
-            socket.to(roomId).emit('gameEnded', {userId: socket.id});
+        socket.on('leaveRoom', function(roomData) {
+            socket.leave(roomData.roomId);
+            socket.emit('exitRoom');
+            socket.to(roomData.roomId).emit('endGame');
+
+            // 방 만든 후 혼자 들어갔다가 나갈 때 rooms에서 방 삭제
+            var roomId = socketRooms.get(socket.id);
+            const roomIdx = rooms.indexOf(roomId);
+            if (roomIdx !== -1) {
+                rooms.splice(roomIdx, 1);
+                console.log('Room removed:', roomId);
+            }
+
+            socketRooms.delete(socket.id);
         });
 
+        socket.on('doPlayer', function(moveData) {
+            const roomId = moveData.roomId;
+            const position = moveData.position;
 
-        socket.on('sendMessage', function (message) {
-            console.log('메세지를 받았습니다 : ', message.nickname + " : " +message.message + " : " + message.roomId);
-            socket.to(message.roomId).emit('receiveMessage', {nickname: message.nickname, message: message.message, userId: socket.id});
+            socket.to(roomId).emit('doOpponent', { position: position });
         });
 
-        socket.on('disconnect', function () {
-            console.log("user disconnected");
-        })
+        socket.on('disconnect', function(reason) {
+            console.log('Disconnected: ' + socket.id + ', Reason: ' + reason);
+        });
     });
 };

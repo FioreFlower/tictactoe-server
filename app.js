@@ -8,6 +8,7 @@ var MongoClient = mongodb.MongoClient;
 
 var indexRouter = require('./routes/index');
 var usersRouter = require('./routes/users');
+var leaderboardRouter = require('./routes/leaderboard');
 const session = require('express-session');
 var fileStore = require('session-file-store')(session);
 
@@ -45,12 +46,12 @@ async function connectDB(){
 
 
     // 연결 종료 처리
-    process.on("SIGINT", async ()=>{
+    process.on("SIGINT", async ()=> {
       await database.close();
       console.log("Database Connected");
       process.exit(0);
     })
-  }catch (err){
+  } catch (err){
     console.error("DB 연결 실패: " + err);
     process.exit(1);
   }
@@ -73,6 +74,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.use('/', indexRouter);
 app.use('/users', usersRouter);
+app.use('/leaderboard', leaderboardRouter);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
